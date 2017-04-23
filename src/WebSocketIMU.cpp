@@ -5,6 +5,11 @@
     Aurther Ben Conway
     Version v1
  */
+extern "C" {
+#include "osapi.h"
+#include "user_interface.h"
+}
+
 #include <Arduino.h>
 //#include <stdint.h>
 #include <Adafruit_BNO055.h>
@@ -39,13 +44,41 @@ WebSocketsClient webSocket;
 Adafruit_BNO055 bno = Adafruit_BNO055(); // Init Sensor
 MPU9250 myIMU;
 
+// static os_timer_t myTimer;
+
 bool socket_connected = false;
+/*
+██ ███    ██ ████████ ███████ ██████  ██████  ██    ██ ██████  ████████
+██ ████   ██    ██    ██      ██   ██ ██   ██ ██    ██ ██   ██    ██
+██ ██ ██  ██    ██    █████   ██████  ██████  ██    ██ ██████     ██
+██ ██  ██ ██    ██    ██      ██   ██ ██   ██ ██    ██ ██         ██
+██ ██   ████    ██    ███████ ██   ██ ██   ██  ██████  ██         ██
+*/
+/**
+ * [timerCallback description]
+ * @param pArg [description]
+ */
+void timerCallback(void *pArg) {}
+
+/*
+██     ██ ███████ ██████  ███████  ██████   ██████ ██   ██ ███████ ████████
+██     ██ ██      ██   ██ ██      ██    ██ ██      ██  ██  ██         ██
+██  █  ██ █████   ██████  ███████ ██    ██ ██      █████   █████      ██
+██ ███ ██ ██      ██   ██      ██ ██    ██ ██      ██  ██  ██         ██
+ ███ ███  ███████ ██████  ███████  ██████   ██████ ██   ██ ███████    ██
+*/
+/**
+ * [webSocketEvent description]
+ * @param type    [description]
+ * @param payload [description]
+ * @param length  [description]
+ */
 void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
 
   switch (type) {
   case WStype_DISCONNECTED:
     Serial.printf("[WSc] Disconnected!\n");
-    socket_connected = false;
+    // socket_connected = false;
     break;
   case WStype_CONNECTED:
     Serial.printf("[WSc] Connected to url: %s\n", payload);
@@ -73,7 +106,9 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
    ██ ███ ██ ██ ██      ██
    ███ ███  ██ ██      ██
  */
-
+/**
+ * [setup_wifi description]
+ */
 void setup_wifi() {
   delay(10);
   // We start by connecting to a WiFi network
@@ -105,7 +140,9 @@ void setup_wifi() {
    ██   ██ ██  ██ ██ ██    ██ ████  ██      ██      ██
    ██████  ██   ████  ██████   ██████  ███████ ███████
  */
-
+/**
+ * [setup_BNO055 description]
+ */
 void setup_BNO055() {
   // Check if sensor started
   if (!bno.begin()) {
@@ -124,6 +161,9 @@ void setup_BNO055() {
    ██  ██  ██ ██      ██    ██      ██  ██      ██ ████  ██
    ██      ██ ██       ██████   █████   ██ ███████  ██████
  */
+/**
+ * [setup_MPU_9150 description]
+ */
 void setup_MPU_9150() {
   myIMU.initMPU9250();
   // Initialize device for active mode read of acclerometer, gyroscope, and
@@ -139,12 +179,17 @@ void setup_MPU_9150() {
      ██ ██         ██    ██    ██ ██
    ███████ ███████    ██     ██████  ██
  */
+/**
+ * [setup description]
+ */
 void setup() {
   Serial.begin(115200);
   // Serial.setDebugOutput(true);
   Serial.println();
   Serial.println();
   Serial.println();
+  system_update_cpu_freq(160);
+  // os_timer_setfn(&myTimer, timerCallback, NULL);
   /*for(uint8_t t = 4; t > 0; t--) {
       Serial.printf("[SETUP] BOOT WAIT %d...\n", t);
       Serial.flush();
@@ -156,6 +201,7 @@ void setup() {
   webSocket.begin(_server, _port);
   // webSocket.setAuthorization("user", "Password"); // HTTP Basic Authorization
   webSocket.onEvent(webSocketEvent);
+  // os_timer_arm(&myTimer, 10, true);
 }
 /*
    ██       ██████   ██████  ██████
@@ -163,6 +209,9 @@ void setup() {
    ██      ██    ██ ██    ██ ██████
    ██      ██    ██ ██    ██ ██
    ███████  ██████   ██████  ██
+ */
+/**
+ * [loop description]
  */
 void loop() {
   //  webSocket.loop();
