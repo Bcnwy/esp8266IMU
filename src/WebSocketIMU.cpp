@@ -6,14 +6,14 @@
     Version v1
  */
 extern "C" {
-#include "osapi.h"
-#include "user_interface.h"
+  #include "osapi.h"
+  #include "user_interface.h"
 }
 
 #include <Arduino.h>
 //#include <stdint.h>
-#include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <Hash.h>
@@ -22,18 +22,17 @@ extern "C" {
 
 #define LED = 2;
 #define BNO055_SAMPLERATE_DELAY_MS (10)
-#define MPU_9150_delay (1) // millis between samples 1/freq * 1000
+#define MPU_9150_delay (10) // millis between samples 1/freq * 1000
 #define ABS_IMU_OUT false
 #define IMU_OUT true
 #define refresh_delay (10)
 
 // Update these with values suitable for your network.
-
 const char *_ssid = "CPT Sensors";
 const char *_password = "crossword";
 const char *_server = "192.168.0.102";
 uint16_t _port = 81;
-long lastMsg = 0, lastacc = 0, start_loop = 0, end_loop = 0, lastmsg = 0;
+long lastMsg = 0, lastacc = 0L, start_loop = 0, end_loop = 0, lastmsg = 0, now = 0;
 bool ACC_data = false, Q_data = false;
 int sample = 0;
 String data;
@@ -45,7 +44,6 @@ Adafruit_BNO055 bno = Adafruit_BNO055(); // Init Sensor
 MPU9250 myIMU;
 
 // static os_timer_t myTimer;
-
 bool socket_connected = false;
 /*
 ██ ███    ██ ████████ ███████ ██████  ██████  ██    ██ ██████  ████████
@@ -58,7 +56,9 @@ bool socket_connected = false;
  * [timerCallback description]
  * @param pArg [description]
  */
-void timerCallback(void *pArg) {}
+void timerCallback(void *pArg) {
+
+}
 
 /*
 ██     ██ ███████ ██████  ███████  ██████   ██████ ██   ██ ███████ ████████
@@ -78,12 +78,11 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
   switch (type) {
   case WStype_DISCONNECTED:
     Serial.printf("[WSc] Disconnected!\n");
-    // socket_connected = false;
+    socket_connected = false;
     break;
   case WStype_CONNECTED:
     Serial.printf("[WSc] Connected to url: %s\n", payload);
     // send message to server when Connected
-    // webSocket.sendTXT("Connected");
     socket_connected = true;
     break;
   case WStype_TEXT:
@@ -168,9 +167,9 @@ void setup_MPU_9150() {
   myIMU.initMPU9250();
   // Initialize device for active mode read of acclerometer, gyroscope, and
   // temperature
-  //  myIMU.MPU9250SelfTest(myIMU.SelfTest);
+  myIMU.MPU9250SelfTest(myIMU.SelfTest);
   myIMU.calibrateMPU9250(myIMU.gyroBias, myIMU.accelBias);
-  // myIMU.initAK8963(myIMU.magCalibration);
+  myIMU.initAK8963(myIMU.magCalibration);
 }
 /*
 ███████ ███████ ████████ ██    ██ ██████
@@ -201,6 +200,7 @@ void setup() {
   webSocket.begin(_server, _port);
   // webSocket.setAuthorization("user", "Password"); // HTTP Basic Authorization
   webSocket.onEvent(webSocketEvent);
+  delay(500);
   // os_timer_arm(&myTimer, 10, true);
 }
 /*
@@ -216,23 +216,25 @@ void setup() {
 void loop() {
   //  webSocket.loop();
   // create varibles to strore sensor data
-  if (socket_connected) {
-    long now = millis();
-    if ((now - lastmsg) >= refresh_delay && sample >= 10) {
+  now = millis();
+  if (socket_connected){
+
+  /*  if ((now - lastmsg) >= refresh_delay) {
       Serial.println(now - lastmsg);
       lastmsg = now;
       if (ACC_data) {
         for (int i = 0; i < 10; i++) {
           webSocket.sendTXT(data);
-          sample = 0;
+          //sample = 0;
         }
       }
       if (Q_data)
         webSocket.sendTXT(Quaternion);
       Q_data = false;
       ACC_data = false;
-    }
-    if ((now - lastacc) >= MPU_9150_delay && IMU_OUT) {
+    }*/
+    //Serial.println((lastacc));
+    if(((now - lastacc) >= MPU_9150_delay)) {
       lastacc = now;
       ACC_data = true;
 
@@ -246,17 +248,18 @@ void loop() {
       char axbuf[10];
       char aybuf[10];
       char azbuf[10];
-
       dtostrf(myIMU.ax, 3, 4, axbuf);
       dtostrf(myIMU.ay, 3, 4, aybuf);
       dtostrf(myIMU.az, 3, 4, azbuf);
       sprintf(MPU_ACC, "{\"Accelerometer\":{\"x\":\"%s\",\"y\":\"%s\",\"z\":\"%"
                        "s\"},\"Time\":\"%i\"}",
               axbuf, aybuf, azbuf, now);
-      data = MPU_ACC;
-      // Serial.println(MPU_ACC);
+      //data = MPU_ACC;
+      webSocket.sendTXT(MPU_ACC);
+      Serial.println(MPU_ACC);
     }
-    if ((now - lastMsg) >= BNO055_SAMPLERATE_DELAY_MS && ABS_IMU_OUT) {
+
+  /*  if ((now - lastMsg) >= BNO055_SAMPLERATE_DELAY_MS && ABS_IMU_OUT) {
       lastMsg = now;
       Q_data = true;
       sensors_event_t event;
@@ -280,7 +283,7 @@ void loop() {
        */
 
       // get Quaternion
-      imu::Quaternion quat = bno.getQuat();
+    /*  imu::Quaternion quat = bno.getQuat();
       float qW = quat.w();
       float qX = quat.x();
       float qY = quat.y();
@@ -298,6 +301,6 @@ void loop() {
                           "s\",\"z\":\"%s\"},\"Time\":\"%i\"}",
               wbuf, xbuf, ybuf, zbuf, now);
       // Serial.println(Quaternion);
-    }
+    }*/
   }
 }
