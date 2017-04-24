@@ -29,9 +29,9 @@ extern "C" {
 
 // Update these with values suitable for your network.
 
-const char *_ssid = "W1F1";                 //"CPT Sensors";
-const char *_password = "B3NR1CHJ0RD4N14N"; //"crossword";
-const char *_server = "192.168.0.21";
+const char *_ssid = "CPT Sensors";
+const char *_password = "crossword";
+const char *_server = "192.168.0.102";
 uint16_t _port = 81;
 long lastMsg = 0, lastacc = 0, start_loop = 0, end_loop = 0, lastmsg = 0;
 bool ACC_data = false, Q_data = false;
