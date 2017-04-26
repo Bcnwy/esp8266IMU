@@ -34,7 +34,7 @@ const char *_server = "192.168.0.102";
 uint16_t _port = 81;
 unsigned  long lastMsg = 0, lastacc = 0, start_loop = 0, end_loop = 0, lastmsg = 0, now = 0;
 bool ACC_data = false, Q_data = false;
-int sample = 0;
+int samples = 0;
 String data;
 char Quaternion[50], MPU_ACC[50];
 
@@ -61,6 +61,12 @@ void timerCallback(void *pArg) {
   //os_timer_disarm(&myTimer);
   if (socket_connected){
     ABS_IMU();
+    if ((samples++)>=10){
+      for (int i=0; i<10;i++){
+        webSocket.sendTXT(Quaternion);
+        Serial.println(Quaternion);
+      }
+    }
   }
 }
 /*
@@ -111,9 +117,6 @@ void ABS_IMU(void){
   sprintf(Quaternion, "{\"Quaternion\":{\"w\":\"%s\",\"x\":\"%s\",\"y\":\"%"
                       "s\",\"z\":\"%s\"},\"Time\":\"%i\"}",
                       wbuf, xbuf, ybuf, zbuf, sTime);
-
-  webSocket.sendTXT(Quaternion);
-  Serial.println(Quaternion);
 }
 /*
 ██ ███    ███ ██    ██
@@ -160,7 +163,8 @@ void IMU(){
  * @param payload [description]
  * @param length  [description]
  */
-void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
+void webSocketEvent( WStype_t type, uint8_t *payload, size_t length) {
+
   switch (type) {
   case WStype_DISCONNECTED:
     Serial.printf("[WSc] Disconnected!\n");
@@ -168,6 +172,9 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
     break;
   case WStype_CONNECTED:
     Serial.printf("[WSc] Connected to url: %s\n", payload);
+    //Serial.printf("WS:   client [%i] connected from %d.%d.%d.%d url: %s\n",
+    //num, ip[0], ip[1], ip[2], ip[3], payload
+    //);
     // send message to server when Connected
     socket_connected = true;
     break;
@@ -181,6 +188,9 @@ void webSocketEvent(WStype_t type, uint8_t *payload, size_t length) {
     hexdump(payload, length);
     // send data to server
     // webSocket.sendBIN(payload, length);
+    break;
+  default:
+    Serial.printf("WS:   unhandled event type: %i\n", type);
     break;
   }
 }
