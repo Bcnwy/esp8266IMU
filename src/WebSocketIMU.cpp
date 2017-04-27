@@ -35,7 +35,7 @@ uint16_t _port = 81;
 unsigned  long lastMsg = 0, lastacc = 0, start_loop = 0, end_loop = 0, lastmsg = 0, now = 0;
 bool ACC_data = false, Q_data = false;
 int samples = 0;
-String data;
+String data, wstr, xstr, ystr, zstr;
 char Quaternion[50], MPU_ACC[50];
 
 WiFiClient espClient;
@@ -62,10 +62,20 @@ void timerCallback(void *pArg) {
   if (socket_connected){
     ABS_IMU();
     if ((samples++)>=10){
-      for (int i=0; i<10;i++){
+        data = "{\"Quaternion\":{";
+        data += "\"w\":[";
+        data += wstr;
+        data += "],\"x\":[";
+        data += xstr;
+        data += "],\"y\":[";
+        data += ystr;
+        data += "],\"z\":[";
+        data += zstr;
+        data += "]},\"Time\":[]";
+        //data += sTime;
         webSocket.sendTXT(Quaternion);
         Serial.println(Quaternion);
-      }
+
     }
   }
 }
@@ -101,22 +111,25 @@ void ABS_IMU(void){
    */
   // get Quaternion
   imu::Quaternion quat = bno.getQuat();
-  long sTime = millis();
+  //sTime = millis();
   float qW = quat.w();
   float qX = quat.x();
   float qY = quat.y();
   float qZ = quat.z();
-  char wbuf[10];
-  char xbuf[10];
-  char ybuf[10];
-  char zbuf[10];
+
+  char wbuf[10], xbuf[10], ybuf[10], zbuf[10];
   dtostrf(qW, 3, 4, wbuf);
   dtostrf(qX, 3, 4, xbuf);
   dtostrf(qY, 3, 4, ybuf);
   dtostrf(qZ, 3, 4, zbuf);
-  sprintf(Quaternion, "{\"Quaternion\":{\"w\":\"%s\",\"x\":\"%s\",\"y\":\"%"
+  wstr +=  wbuf + ',';
+  xstr +=  xbuf + ',';
+  ystr +=  ybuf + ',';
+  zstr +=  zbuf + ',';
+  /*sprintf(Quaternion, "{\"Quaternion\":{\"w\":\"%s\",\"x\":\"%s\",\"y\":\"%"
                       "s\",\"z\":\"%s\"},\"Time\":\"%i\"}",
                       wbuf, xbuf, ybuf, zbuf, sTime);
+                      */
 }
 /*
 ██ ███    ███ ██    ██
