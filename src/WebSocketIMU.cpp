@@ -19,6 +19,8 @@ extern "C" {
 #include <Hash.h>
 #include <MPU9250.h>
 #include <WebSocketsClient.h>
+#include <string>
+
 
 #define LED = 2;
 #define BNO055_SAMPLERATE_DELAY_MS (10000)
@@ -61,21 +63,26 @@ void timerCallback(void *pArg) {
   //os_timer_disarm(&myTimer);
   if (socket_connected){
     ABS_IMU();
-    if ((samples++)>=10){
-        data = "{\"Quaternion\":{";
-        data += "\"w\":[";
-        data += wstr;
-        data += "],\"x\":[";
-        data += xstr;
-        data += "],\"y\":[";
-        data += ystr;
-        data += "],\"z\":[";
-        data += zstr;
-        data += "]},\"Time\":[]";
-        //data += sTime;
-        webSocket.sendTXT(Quaternion);
-        Serial.println(Quaternion);
+    if ((++samples)>=10){
+      samples = 0;
+      data = "{\"Quaternion\":{";
+      data += "\"w\":[";
+      data += wstr;
+      data += "],\"x\":[";
+      data += xstr;
+      data += "],\"y\":[";
+      data += ystr;
+      data += "],\"z\":[";
+      data += zstr;
+      data += "]},\"Time\":[]}";
 
+      wstr = "";
+      xstr = "";
+      ystr = "";
+      zstr = "";
+      //data += sTime;
+      webSocket.sendTXT(data);
+      //Serial.println(data);
     }
   }
 }
@@ -116,20 +123,21 @@ void ABS_IMU(void){
   float qX = quat.x();
   float qY = quat.y();
   float qZ = quat.z();
-
   char wbuf[10], xbuf[10], ybuf[10], zbuf[10];
-  dtostrf(qW, 3, 4, wbuf);
-  dtostrf(qX, 3, 4, xbuf);
-  dtostrf(qY, 3, 4, ybuf);
-  dtostrf(qZ, 3, 4, zbuf);
-  wstr +=  wbuf + ',';
-  xstr +=  xbuf + ',';
-  ystr +=  ybuf + ',';
-  zstr +=  zbuf + ',';
+
+  dtostrf(qW, 6, 2, wbuf);
+  dtostrf(qX, 6, 2, xbuf);
+  dtostrf(qY, 6, 2, ybuf);
+  dtostrf(qZ, 6, 2, zbuf);
+  wstr +=  (String)wbuf + ',';
+  xstr +=  (String)xbuf + ',';
+  ystr +=  (String)ybuf + ',';
+  zstr +=  (String)zbuf + ',';
   /*sprintf(Quaternion, "{\"Quaternion\":{\"w\":\"%s\",\"x\":\"%s\",\"y\":\"%"
                       "s\",\"z\":\"%s\"},\"Time\":\"%i\"}",
                       wbuf, xbuf, ybuf, zbuf, sTime);
                       */
+  Serial.println(wstr);
 }
 /*
 ██ ███    ███ ██    ██
@@ -290,7 +298,7 @@ void setup_MPU_9150() {
  */
 void setup() {
   Serial.begin(460800);
-  // Serial.setDebugOutput(true);
+  Serial.setDebugOutput(true);
   Serial.println();
   Serial.println();
   Serial.println();
@@ -334,5 +342,7 @@ void loop() {
         lastacc = now;
         IMU();
       }*/
-  //yield();
+      //delay(500);
+      //Serial.print('.');
+  yield();
 }
