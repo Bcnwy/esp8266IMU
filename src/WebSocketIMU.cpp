@@ -30,14 +30,19 @@ extern "C" {
 #define refresh_delay (10)
 
 // Update these with values suitable for your network.
-const char *_ssid = "CPT Sensors";
+/*const char *_ssid = "CPT Sensors";
 const char *_password = "crossword";
 const char *_server = "192.168.0.102";
+*/
+const char *_ssid = "W1F1";
+const char *_password = "B3NR1CHJ0RD4N14N";
+const char *_server = "192.168.0.15";
+
 uint16_t _port = 81;
 unsigned  long lastMsg = 0, lastacc = 0, start_loop = 0, end_loop = 0, lastmsg = 0, now = 0;
 bool ACC_data = false, Q_data = false;
 int samples = 0;
-String data, wstr, xstr, ystr, zstr;
+String data, wstr[10], xstr, ystr, zstr;
 char Quaternion[50], MPU_ACC[50];
 
 WiFiClient espClient;
@@ -60,31 +65,7 @@ void ABS_IMU();
  * @param pArg [description]
  */
 void timerCallback(void *pArg) {
-  //os_timer_disarm(&myTimer);
-  if (socket_connected){
     ABS_IMU();
-    if ((++samples)>=10){
-      samples = 0;
-      data = "{\"Quaternion\":{";
-      data += "\"w\":[";
-      data += wstr;
-      data += "],\"x\":[";
-      data += xstr;
-      data += "],\"y\":[";
-      data += ystr;
-      data += "],\"z\":[";
-      data += zstr;
-      data += "]},\"Time\":[]}";
-
-      wstr = "";
-      xstr = "";
-      ystr = "";
-      zstr = "";
-      //data += sTime;
-      webSocket.sendTXT(data);
-      //Serial.println(data);
-    }
-  }
 }
 /*
  █████  ██████  ███████     ██ ███    ███ ██    ██
@@ -129,15 +110,15 @@ void ABS_IMU(void){
   dtostrf(qX, 6, 2, xbuf);
   dtostrf(qY, 6, 2, ybuf);
   dtostrf(qZ, 6, 2, zbuf);
-  wstr +=  (String)wbuf + ',';
-  xstr +=  (String)xbuf + ',';
-  ystr +=  (String)ybuf + ',';
-  zstr +=  (String)zbuf + ',';
+  wstr[samples]=  (String)wbuf + ',';
+  //xstr +=  (String)xbuf + ',';
+  //ystr +=  (String)ybuf + ',';
+  //zstr +=  (String)zbuf + ',';
   /*sprintf(Quaternion, "{\"Quaternion\":{\"w\":\"%s\",\"x\":\"%s\",\"y\":\"%"
                       "s\",\"z\":\"%s\"},\"Time\":\"%i\"}",
                       wbuf, xbuf, ybuf, zbuf, sTime);
                       */
-  Serial.println(wstr);
+  //Serial.println(wstr[0]);
 }
 /*
 ██ ███    ███ ██    ██
@@ -168,8 +149,8 @@ void IMU(){
                    "s\"},\"Time\":\"%i\"}",
           axbuf, aybuf, azbuf, millis());
   //data = MPU_ACC;
-  webSocket.sendTXT(MPU_ACC);
-  Serial.println(MPU_ACC);
+  //webSocket.sendTXT(MPU_ACC);
+  //Serial.println(MPU_ACC);
 }
 /*
 ██     ██ ███████ ██████  ███████  ██████   ██████ ██   ██ ███████ ████████
@@ -298,11 +279,12 @@ void setup_MPU_9150() {
  */
 void setup() {
   Serial.begin(460800);
-  Serial.setDebugOutput(true);
+  //Serial.setDebugOutput(true);
   Serial.println();
   Serial.println();
   Serial.println();
-  system_update_cpu_freq(160);
+  system_update_cpu_freq(80);
+  //os_update_cpu_frequency(160);
   os_timer_setfn(&myTimer, timerCallback, NULL);
   /*for(uint8_t t = 4; t > 0; t--) {
       Serial.printf("[SETUP] BOOT WAIT %d...\n", t);
@@ -313,11 +295,13 @@ void setup() {
   if (IMU_OUT) setup_MPU_9150();
   setup_wifi();
   webSocket.begin(_server, _port);
+
   // webSocket.setAuthorization("user", "Password"); // HTTP Basic Authorization
   webSocket.onEvent(webSocketEvent);
-  lastMsg = 0;
+  //lastMsg = 0;
   delay(500);
-  os_timer_arm(&myTimer, 10, true);
+  os_timer_arm(&myTimer, 100, true);
+  Serial.println("Boot Done...");
 }
 /*
    ██       ██████   ██████  ██████
@@ -330,6 +314,34 @@ void setup() {
  * [loop description]
  */
 void loop() {
+  if (socket_connected){
+    if ((++samples)>=10){
+      samples = 0;
+      for(int i=0;i<10;i++)
+      {
+        data = "{\"Quaternion\":{";
+        data += "\"w\":[";
+        data += wstr[i];
+        data += "],\"x\":[";
+      //  data += xstr[i];
+        data += "],\"y\":[";
+        //data += ystr[i];
+        data += "],\"z\":[";
+        //data += zstr[i];
+        data += "]},\"Time\":[]}";
+        //webSocket.sendTXT(data);
+        Serial.println(data);
+      }
+      /*wstr = "";
+      xstr = "";
+      ystr = "";
+      zstr = "";*/
+      //data += sTime;
+
+      //Serial.println(data);
+    }
+  }
+//if (!socket_connected)webSocket.begin(_server, _port);
   /*  if ((now - lastmsg) >= refresh_delay) {
       lastmsg = now;
 */
@@ -342,7 +354,7 @@ void loop() {
         lastacc = now;
         IMU();
       }*/
-      //delay(500);
-      //Serial.print('.');
+  //delay(500);
+  //Serial.print('.');
   yield();
 }
