@@ -23,6 +23,7 @@ extern "C" {
 #define LED = 2;
 #define ABS_IMU_SAMPLERATE_DELAY_MS (10)
 #define IMU_SAMPLERATE_DELAY_MS (1) // millis between samples 1/freq * 1000
+#define timer_refresh_rate (1)
 #define ABS_IMU_OUT true
 #define IMU_OUT false
 
@@ -35,24 +36,23 @@ const char *_password = "B3NR1CHJ0RD4N14N";
 const char *_server = "192.168.0.21";
 */
 uint16_t _port = 81;
-unsigned  long lastMsg = 0, lastacc = 0, start_loop = 0, end_loop = 0, lastmsg = 0, now = 0;
-bool ACC_data = false, Q_data = false;
-int samples = 0, IMU_sample = 0;
-char buf[10][4][10];
-//char IMU_buf[10][3][10];
-long Stime[10], IMU_time[10];
-char Quaternion[50], MPU_ACC[50];
+//bool ACC_data = false, Q_data = false;
+int samples = 0, IMU_sample = 0, cycles =0;
+char buf[10][4][10] = {0};
+char IMU_buf[10][3][10];
+long ABS_time[10], IMU_time[10];
+//char Quaternion[50], MPU_ACC[50];
 
 WiFiClient espClient;
 WebSocketsClient webSocket;
 Adafruit_BNO055 bno = Adafruit_BNO055(); // Init Sensor
 MPU9250 myIMU;
 
-os_timer_t ABS_IMU_timer;
-//os_timer_t IMU_timer;
+static os_timer_t ABS_IMU_timer;
+//static os_timer_t IMU_timer;
 volatile bool socket_connected = false;
 void ABS_IMU();
-//void IMU();
+void IMU();
 
 typedef enum {
         wAxis = 0,
@@ -71,12 +71,12 @@ typedef enum {
  * [timerCallback description]
  * @param pArg [description]
  */
-void ABS_IMU_timerCB(void *pArg) {
-    ABS_IMU();
+void ICACHE_FLASH_ATTR ABS_IMU_timerCB(void *pArg){
+    //os_intr_lock();
+    if (IMU_OUT) IMU();
+    if(cycles++ >= ABS_IMU_SAMPLERATE_DELAY_MS){ ABS_IMU(); cycles = 0;}
+    //os_intr_unlock();
 }
-/*void IMU_timerCB(void *pArg) {
-    IMU();
-}*/
 /*
  █████  ██████  ███████     ██ ███    ███ ██    ██
 ██   ██ ██   ██ ██          ██ ████  ████ ██    ██
@@ -88,15 +88,13 @@ void ABS_IMU_timerCB(void *pArg) {
  * [ABS_IMU description]
  */
 void ABS_IMU(void){
-  Q_data = true;
   // get Quaternion
   imu::Quaternion quat = bno.getQuat();
-  Stime[samples] = millis();
+  ABS_time[samples] = millis();
   float qW = quat.w();
   float qX = quat.x();
   float qY = quat.y();
   float qZ = quat.z();
-
   dtostrf(qW, 5, 2, buf[samples][wAxis]);
   dtostrf(qX, 5, 2, buf[samples][xAxis]);
   dtostrf(qY, 5, 2, buf[samples][yAxis]);
@@ -113,8 +111,7 @@ void ABS_IMU(void){
 /**
  * [IMU description]
  */
-/*void IMU(){
-  ACC_data = true;
+void IMU(){
   IMU_time[IMU_sample] = millis();
   myIMU.readAccelData(myIMU.accelCount); // Read the x/y/z adc values
   myIMU.getAres();
@@ -123,13 +120,13 @@ void ABS_IMU(void){
   myIMU.ax = (float)myIMU.accelCount[0] * myIMU.aRes; // - accelBias[0];
   myIMU.ay = (float)myIMU.accelCount[1] * myIMU.aRes; // - accelBias[1];
   myIMU.az = (float)myIMU.accelCount[2] * myIMU.aRes; // - accelBias[2];
-
-  dtostrf(myIMU.ax, 5, 2, IMU_buf[IMU_sample][xAxis]);
-  dtostrf(myIMU.ay, 5, 2, IMU_buf[IMU_sample][yAxis]);
-  dtostrf(myIMU.az, 5, 2, IMU_buf[IMU_sample][zAxis]);
+  dtostrf(myIMU.ax, 5, 3, IMU_buf[IMU_sample][xAxis]);
+  dtostrf(myIMU.ay, 5, 3, IMU_buf[IMU_sample][yAxis]);
+  dtostrf(myIMU.az, 5, 3, IMU_buf[IMU_sample][zAxis]);
+  IMU_sample++;
   //webSocket.sendTXT(MPU_ACC);
   //Serial.println(MPU_ACC);
-}*/
+}
 /*
 ██     ██ ███████ ██████  ███████  ██████   ██████ ██   ██ ███████ ████████
 ██     ██ ██      ██   ██ ██      ██    ██ ██      ██  ██  ██         ██
@@ -144,7 +141,6 @@ void ABS_IMU(void){
  * @param length  [description]
  */
 void webSocketEvent( WStype_t type, uint8_t *payload, size_t length) {
-
   switch (type) {
   case WStype_DISCONNECTED:
     Serial.printf("[WSc] Disconnected!\n");
@@ -170,7 +166,7 @@ void webSocketEvent( WStype_t type, uint8_t *payload, size_t length) {
     // webSocket.sendBIN(payload, length);
     break;
   default:
-    Serial.printf("WS:   unhandled event type: %i\n", type);
+    Serial.printf("[WSc] unhandled event type: %i\n", type);
     break;
   }
 }
@@ -184,7 +180,7 @@ void webSocketEvent( WStype_t type, uint8_t *payload, size_t length) {
 /**
  * [setup_wifi description]
  */
-/*void setup_wifi() {
+void setup_wifi() {
   delay(10);
   // We start by connecting to a WiFi network
   Serial.println();
@@ -198,14 +194,13 @@ void webSocketEvent( WStype_t type, uint8_t *payload, size_t length) {
     delay(500);
     Serial.print(".");
     // ESP.restart();
-    // WiFi.begin(_ssid, _password);
   }
   Serial.println("");
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   delay(100);
-}*/
+}
 /*
    ██████  ███    ██  ██████   ██████  ███████ ███████
    ██   ██ ████   ██ ██    ██ ██  ████ ██      ██
@@ -237,12 +232,12 @@ void setup_BNO055() {
 /**
  * [setup_MPU_9150 description]
  */
-/*void setup_MPU_9150() {
+void setup_MPU_9250() {
   myIMU.initMPU9250();
   myIMU.MPU9250SelfTest(myIMU.SelfTest);
   myIMU.calibrateMPU9250(myIMU.gyroBias, myIMU.accelBias);
   myIMU.initAK8963(myIMU.magCalibration);
-}*/
+}
 /*
 ███████ ███████ ████████ ██    ██ ██████
 ██      ██         ██    ██    ██ ██   ██
@@ -261,28 +256,23 @@ void setup() {
   Serial.println();
   system_update_cpu_freq(80);
   //os_update_cpu_frequency(80);
-
-
   /*for(uint8_t t = 4; t > 0; t--) {
       Serial.printf("[SETUP] BOOT WAIT %d...\n", t);
       Serial.flush();
       delay(1000);
      }*/
-  if (ABS_IMU_OUT){
-    setup_BNO055();
-    os_timer_setfn(&ABS_IMU_timer, ABS_IMU_timerCB, NULL);
-    os_timer_arm(&ABS_IMU_timer, ABS_IMU_SAMPLERATE_DELAY_MS, true);
-  }
-  /*if (IMU_OUT){
-    setup_MPU_9150();
-    os_timer_setfn(&IMU_timer, IMU_timerCB, NULL);
-    os_timer_arm(&IMU_timer, IMU_SAMPLERATE_DELAY_MS, true);
-  }*/
-  //setup_wifi();
+
+  setup_BNO055();
+  if (IMU_OUT)setup_MPU_9250();
+  setup_wifi();
   webSocket.begin(_server, _port);
   // webSocket.setAuthorization("user", "Password"); // HTTP Basic Authorization
   webSocket.onEvent(webSocketEvent);
   delay(500);
+  os_timer_disarm(&ABS_IMU_timer);
+  os_timer_setfn(&ABS_IMU_timer, ABS_IMU_timerCB, NULL);
+  os_timer_arm(&ABS_IMU_timer, timer_refresh_rate, true);
+
   Serial.println("Boot Done...");
 }
 /*
@@ -313,34 +303,36 @@ void loop() {
         data += buf[i][zAxis];
         //data += zstr[i];
         data += "},\"Time\":";
-        data += Stime[i];
+        data += ABS_time[i];
         data += "}";
-        webSocket.sendTXT(data);
+        //webSocket.sendTXT(data);
       }
-      Serial.println(data);
+      //Serial.println(data);
       samples = 0;
     //}
   }
+  //  yield();
   /*if (IMU_sample>=100){
       String data;
       for(int i=0;i<IMU_sample;i++) {
         data = "{\"IMU\":{";
         data += "\"x\":[";
-        data += buf[i][xAxis];
-        data += buf[i][xAxis];
+        data += IMU_buf[i][xAxis];
+        data += IMU_buf[i][xAxis];
         data += "],\"y\":";
-        data += buf[i][yAxis];
+        data += IMU_buf[i][yAxis];
         data += ",\"z\":";
-        data += buf[i][zAxis];
+        data += IMU_buf[i][zAxis];
         data += "},\"Time\":";
-        data += Stime[i];
+        data += IMU_time[i];
         data += "}";
         webSocket.sendTXT(data);
       }
+      Serial.println(data);
       IMU_sample = 0;
     //}
   }*/
-  yield();
+
   //delay(500);
   //Serial.print('.');
 }
