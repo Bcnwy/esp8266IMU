@@ -41,7 +41,6 @@ int samples = 0, IMU_sample = 0, cycles =0;
 char buf[10][4][10] = {0};
 char IMU_buf[10][3][10];
 long ABS_time[10], IMU_time[10];
-//char Quaternion[50], MPU_ACC[50];
 
 WiFiClient espClient;
 WebSocketsClient webSocket;
@@ -311,8 +310,7 @@ void loop() {
       samples = 0;
     //}
   }
-  //  yield();
-  /*if (IMU_sample>=100){
+  if (IMU_sample>=100){
       String data;
       for(int i=0;i<IMU_sample;i++) {
         data = "{\"IMU\":{";
@@ -330,9 +328,5 @@ void loop() {
       }
       Serial.println(data);
       IMU_sample = 0;
-    //}
-  }*/
-
-  //delay(500);
-  //Serial.print('.');
+  }
 }
