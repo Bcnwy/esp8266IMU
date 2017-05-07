@@ -26,13 +26,13 @@ extern "C" {
 
 // Update these with values suitable for your network.
 uint16_t _port = 81;
-const char *_ssid = "CPT Sensors";
+/*const char *_ssid = "CPT Sensors";
 const char *_password = "crossword";
-const char *_server = "192.168.0.102";
-/*const char *_ssid = "W1F1";
+const char *_server = "192.168.0.102";*/
+const char *_ssid = "W1F1";
 const char *_password = "B3NR1CHJ0RD4N14N";
-const char *_server = "192.168.0.21";
-*/
+const char *_server = "192.168.0.15";
+
 int samples = 0, IMU_sample = 0, cycles =0;
 char buf[10][4][10] = {0};
 char IMU_buf[10][3][10];
@@ -308,7 +308,7 @@ void loop() {
         data += buf[i][yAxis];
         data += ",\"z\":";
         data += buf[i][zAxis];
-        data = "},\"LinAcc\":{";
+        data += "},\"LinAcc\":{";
         data += "\"x\":";
         data += LinAcc_buf[i][xAxis];
         data += ",\"y\":";
