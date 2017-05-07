@@ -1,15 +1,13 @@
 /*
    WebSocketClient.ino
-
     Created on: 24.05.2015
     Aurther Ben Conway
-    Version v1
+    Version v1.1
  */
 extern "C" {
   #include "osapi.h"
   #include "user_interface.h"
 }
-
 #include <Arduino.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
@@ -18,7 +16,6 @@ extern "C" {
 #include <Hash.h>
 #include <MPU9250.h>
 #include <WebSocketsClient.h>
-//#include <String.h>
 
 #define LED = 2;
 #define ABS_IMU_SAMPLERATE_DELAY_MS (10)
@@ -28,6 +25,7 @@ extern "C" {
 #define IMU_OUT false
 
 // Update these with values suitable for your network.
+uint16_t _port = 81;
 const char *_ssid = "CPT Sensors";
 const char *_password = "crossword";
 const char *_server = "192.168.0.102";
@@ -35,11 +33,10 @@ const char *_server = "192.168.0.102";
 const char *_password = "B3NR1CHJ0RD4N14N";
 const char *_server = "192.168.0.21";
 */
-uint16_t _port = 81;
-//bool ACC_data = false, Q_data = false;
 int samples = 0, IMU_sample = 0, cycles =0;
 char buf[10][4][10] = {0};
 char IMU_buf[10][3][10];
+char LinAcc_buf[10][3][10];
 long ABS_time[10], IMU_time[10];
 
 WiFiClient espClient;
@@ -54,10 +51,10 @@ void ABS_IMU();
 void IMU();
 
 typedef enum {
-        wAxis = 0,
-        xAxis = 1,
-        yAxis = 2,
-        zAxis = 3,
+        wAxis = 3,
+        xAxis = 0,
+        yAxis = 1,
+        zAxis = 2,
 } Axis;
 /*
 ██ ███    ██ ████████ ███████ ██████  ██████  ██    ██ ██████  ████████
@@ -71,6 +68,7 @@ typedef enum {
  * @param pArg [description]
  */
 void ICACHE_FLASH_ATTR ABS_IMU_timerCB(void *pArg){
+  // TODO: switch to flags to not block ISR for long time
     //os_intr_lock();
     if (IMU_OUT) IMU();
     if(cycles++ >= ABS_IMU_SAMPLERATE_DELAY_MS){ ABS_IMU(); cycles = 0;}
@@ -87,9 +85,17 @@ void ICACHE_FLASH_ATTR ABS_IMU_timerCB(void *pArg){
  * [ABS_IMU description]
  */
 void ABS_IMU(void){
-  // get Quaternion
+   // Possible vector values can be:
+// - VECTOR_ACCELEROMETER - m/s^2
+// - VECTOR_MAGNETOMETER  - uT
+// - VECTOR_GYROSCOPE     - rad/s
+// - VECTOR_EULER         - degrees
+// - VECTOR_LINEARACCEL   - m/s^2
+// - VECTOR_GRAVITY       - m/s^2
   imu::Quaternion quat = bno.getQuat();
+  imu::Vector<3> LinAcc = bno.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
   ABS_time[samples] = millis();
+
   float qW = quat.w();
   float qX = quat.x();
   float qY = quat.y();
@@ -98,6 +104,10 @@ void ABS_IMU(void){
   dtostrf(qX, 5, 2, buf[samples][xAxis]);
   dtostrf(qY, 5, 2, buf[samples][yAxis]);
   dtostrf(qZ, 5, 2, buf[samples][zAxis]);
+
+  dtostrf(LinAcc.x(), 5, 3, LinAcc_buf[samples][xAxis]);
+  dtostrf(LinAcc.y(), 5, 3, LinAcc_buf[samples][yAxis]);
+  dtostrf(LinAcc.z(), 5, 3, LinAcc_buf[samples][zAxis]);
   samples++;
 }
 /*
@@ -222,12 +232,12 @@ void setup_BNO055() {
   bno.setExtCrystalUse(true);
 }
 /*
-   ███    ███ ██████  ██    ██  █████   ██ ███████  ██████
-   ████  ████ ██   ██ ██    ██ ██   ██ ███ ██      ██  ████
-   ██ ████ ██ ██████  ██    ██  ██████  ██ ███████ ██ ██ ██
-   ██  ██  ██ ██      ██    ██      ██  ██      ██ ████  ██
-   ██      ██ ██       ██████   █████   ██ ███████  ██████
- */
+███    ███ ██████  ██    ██  █████  ██████  ███████  ██████      ███████ ███████ ████████ ██    ██ ██████
+████  ████ ██   ██ ██    ██ ██   ██      ██ ██      ██  ████     ██      ██         ██    ██    ██ ██   ██
+██ ████ ██ ██████  ██    ██  ██████  █████  ███████ ██ ██ ██     ███████ █████      ██    ██    ██ ██████
+██  ██  ██ ██      ██    ██      ██ ██           ██ ████  ██          ██ ██         ██    ██    ██ ██
+██      ██ ██       ██████   █████  ███████ ███████  ██████      ███████ ███████    ██     ██████  ██
+*/
 /**
  * [setup_MPU_9150 description]
  */
@@ -294,30 +304,32 @@ void loop() {
         data += buf[i][wAxis];
         data += ",\"x\":";
         data += buf[i][xAxis];
-        //  data += xstr[i];
         data += ",\"y\":";
         data += buf[i][yAxis];
-        //data += ystr[i];
         data += ",\"z\":";
         data += buf[i][zAxis];
-        //data += zstr[i];
+        data = "},\"LinAcc\":{";
+        data += "\"x\":";
+        data += LinAcc_buf[i][xAxis];
+        data += ",\"y\":";
+        data += LinAcc_buf[i][yAxis];
+        data += ",\"z\":";
+        data += LinAcc_buf[i][zAxis];
         data += "},\"Time\":";
         data += ABS_time[i];
         data += "}";
-        //webSocket.sendTXT(data);
+        webSocket.sendTXT(data);
       }
-      //Serial.println(data);
+      Serial.println(data);
       samples = 0;
-    //}
   }
   if (IMU_sample>=100){
       String data;
       for(int i=0;i<IMU_sample;i++) {
-        data = "{\"IMU\":{";
-        data += "\"x\":[";
+        data = "{\"Accelerometer\":{";
+        data += "\"x\":";
         data += IMU_buf[i][xAxis];
-        data += IMU_buf[i][xAxis];
-        data += "],\"y\":";
+        data += ",\"y\":";
         data += IMU_buf[i][yAxis];
         data += ",\"z\":";
         data += IMU_buf[i][zAxis];
